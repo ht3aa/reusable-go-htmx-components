@@ -1,0 +1,165 @@
+{{define "shell"}}
+<!DOCTYPE html>
+<html lang="{{.Locale}}" dir="{{.Dir}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {{if .CSRF}}<meta name="csrf-token" content="{{.CSRF}}">{{end}}
+  <title>{{.Title}} — {{.AppName}}</title>
+  {{if .LogoURL}}<link rel="icon" type="image/png" href="{{.LogoURL}}">{{end}}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{.AssetPrefix}}/dashboard.css">
+  {{if .HTMX}}<script src="{{.HTMX}}" defer></script>{{end}}
+  <script src="{{.AssetPrefix}}/dashboard.js" defer></script>
+</head>
+<body {{if .CSRF}}hx-headers='{"X-CSRF-Token": "{{.CSRF}}"}'{{end}}>
+{{if .Admin}}
+<div class="shell">
+  <aside class="sidebar">
+    <a class="brand" href="{{.Home}}">
+      {{if .LogoURL}}<img src="{{.LogoURL}}" alt="" width="46" height="46">{{end}}
+      <span><strong>{{.Brand}}</strong>{{if .BrandSub}}<small>{{.BrandSub}}</small>{{end}}</span>
+    </a>
+    {{.Switch}}
+    <nav>
+      {{range .Nav}}<a class="{{if .Active}}active{{end}}" href="{{.Href}}">{{.Icon}}{{.Label}}</a>{{end}}
+    </nav>
+    <div class="profile" data-profile>
+      <button type="button" class="who" aria-haspopup="menu" aria-expanded="false">
+        <span class="avatar">{{initial .Admin}}</span>
+        <span class="who-name">{{.Admin}}</span>
+        <svg class="who-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg>
+      </button>
+      <div class="profile-menu" hidden>
+        {{if .LocaleBase}}{{template "lang" .}}{{end}}
+        {{.ProfileExtra}}
+        {{if .LogoutAction}}
+        <form method="post" action="{{.LogoutAction}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><button class="profile-logout" type="submit">{{.LogoutLabel}}</button></form>
+        {{end}}
+      </div>
+    </div>
+    {{if .Version}}<p class="sidebar-version">{{.Version}}</p>{{end}}
+  </aside>
+  <div class="workspace">
+    {{if .Flash}}<p class="flash">{{.Flash}}</p>{{end}}
+    {{if .Heading}}<h1 class="page-title">{{.Heading}}</h1>{{end}}
+    {{.Body}}
+  </div>
+</div>
+{{else}}
+<main class="login-screen">
+  <div class="login-card">
+    {{if .LocaleBase}}{{template "lang" .}}{{end}}
+    {{if .LogoURL}}<img src="{{.LogoURL}}" alt="" width="76" height="76">{{end}}
+    <h1 class="wordmark">{{.Brand}}</h1>
+    {{if .BrandSub}}<p class="wordmark-en">{{.BrandSub}}</p>{{end}}
+    {{if .LoginLead}}<p class="login-lead">{{.LoginLead}}</p>{{end}}
+    {{.Body}}
+  </div>
+</main>
+{{end}}
+</body>
+</html>
+{{end}}
+
+{{define "lang"}}
+<div class="lang">
+  <a href="{{.LocaleBase}}?lang=en" class="{{if eq .Locale "en"}}on{{end}}">English</a>
+  <a href="{{.LocaleBase}}?lang=ar" class="{{if eq .Locale "ar"}}on{{end}}">العربية</a>
+</div>
+{{end}}
+
+{{define "dataTable"}}
+<div class="datatable" data-datatable="{{.ID}}" data-showing="{{.Showing}}" data-of="{{.Of}}" data-selected="{{.Selected}}">
+  <div class="datatable-bar">
+    <input class="datatable-search" type="search" placeholder="{{.SearchLabel}}" data-search>
+    {{range .Filters}}
+    <div class="datatable-filter">
+      {{template "selectField" (mark (sel .Key .Label "" "" false false (leadOption $.AllLabel .Options)) (printf "data-filter=%q" .Key))}}
+    </div>
+    {{end}}
+    <div class="datatable-tools">
+      <div class="datatable-columns">
+        <button type="button" class="btn ghost" data-columns aria-expanded="false">{{.ColumnsLabel}}</button>
+        <div class="datatable-column-menu" hidden>
+          {{range .Columns}}<label class="check"><input type="checkbox" data-column="{{.Key}}" checked {{if .Locked}}disabled{{end}}> {{.Label}}</label>{{end}}
+        </div>
+      </div>
+      {{if .CreateHref}}<a class="btn" href="{{.CreateHref}}">{{.CreateLabel}}</a>{{end}}
+    </div>
+  </div>
+  {{if .Bulk}}
+  <form id="bulk-{{.ID}}" class="datatable-bulk" method="post" action="{{.Bulk.Action}}" data-confirm="{{.Bulk.Confirm}}" hidden>
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <span data-selected-count></span>
+    <button class="btn ghost danger" type="submit">{{.Bulk.Label}}</button>
+  </form>
+  {{end}}
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          {{if .Bulk}}<th class="check-col"><input type="checkbox" data-check-all aria-label="{{.SelectAll}}"></th>{{end}}
+          {{range .Columns}}<th data-col="{{.Key}}" data-sort="{{.Key}}" tabindex="0">{{.Label}}<span class="sort-mark" aria-hidden="true"></span></th>{{end}}
+          {{if .HasActions}}<th class="actions" data-col="actions"></th>{{end}}
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Rows}}
+        <tr data-search="{{.Search}}">
+          {{if $.Bulk}}<td class="check-col"><input type="checkbox" name="ids" value="{{.ID}}" form="bulk-{{$.ID}}" data-check></td>{{end}}
+          {{range .Cells}}<td data-col="{{.Key}}" data-value="{{.Filter}}" data-sort="{{.Sort}}">{{.HTML}}</td>{{end}}
+          {{if $.HasActions}}<td class="actions" data-col="actions">{{.Actions}}</td>{{end}}
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+    <p class="datatable-empty" hidden>{{.Empty}}</p>
+  </div>
+  <div class="datatable-foot">
+    <span data-meta></span>
+    <div class="datatable-pager">
+      <div class="datatable-page">
+        {{template "selectField" (mark (sel "pageSize" .PageLabel "10" "" false false pageSizes) "data-page-size")}}
+      </div>
+      <button type="button" class="btn ghost" data-prev>{{.Prev}}</button>
+      <button type="button" class="btn ghost" data-next>{{.Next}}</button>
+    </div>
+  </div>
+</div>
+{{end}}
+
+{{define "selectField"}}
+<div class="select" data-select>
+  {{if .Label}}<span class="select-label" id="select-{{.Name}}-label">{{.Label}}</span>{{end}}
+  <div class="select-control">
+    <select class="select-native" name="{{.Name}}" {{.Attr}} {{if .Label}}aria-labelledby="select-{{.Name}}-label"{{end}} {{if .Required}}required{{end}} {{if .Placeholder}}data-placeholder="{{.Placeholder}}"{{end}} {{if .Submit}}onchange="this.form.requestSubmit()"{{end}}>
+      {{if .Placeholder}}<option value="" {{if not .Value}}selected{{end}}>{{.Placeholder}}</option>{{end}}
+      {{range .Options}}<option value="{{.Value}}" {{if eq $.Value .Value}}selected{{end}}>{{.Label}}</option>{{end}}
+    </select>
+  </div>
+</div>
+{{end}}
+
+{{define "imageField"}}
+<div class="file-upload" data-file-upload {{if .Multiple}}data-multiple{{end}} data-remove-label="{{.Remove}}">
+  <input class="file-upload-input" type="file" name="{{.Name}}" accept="image/*" {{if .Multiple}}multiple{{end}} tabindex="-1">
+  <input type="hidden" name="imageOrder" value="" data-order>
+  <div class="file-upload-grid" data-grid>
+    {{range .Existing}}
+    <figure class="file-upload-item" data-token="keep:{{.Key}}">
+      <img src="{{.URL}}" alt="" draggable="false">
+      <button type="button" class="file-upload-remove" data-remove aria-label="{{$.Remove}}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </figure>
+    {{end}}
+    <div class="file-upload-drop" data-drop tabindex="0">
+      <svg class="file-upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 16.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5"/></svg>
+      <span class="file-upload-copy">{{.Prompt}} <span class="file-upload-browse">{{.Browse}}</span></span>
+    </div>
+  </div>
+</div>
+{{end}}
